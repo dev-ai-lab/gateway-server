@@ -1,0 +1,86 @@
+spring:
+  application:
+    name: gateway-server
+  config:
+    import: "optional:configserver:http://localhost:8071/"
+  cloud:
+    gateway:
+      # Please connect to discovery server (Eureka) and locate all microservices for request forwarding purpose
+#      discovery:
+#        locator:
+#          enabled: true
+      # Wait time for each microservice connection. This is global for all microservices
+      httpclient:
+        connect-timeout: 1000
+        response-timeout: 10s
+    # When kubernetes discovery server is used
+    kubernetes:
+      discovery:
+        enabled: true
+        all-namespaces: true
+    discovery:
+      client:
+        health-indicator:
+          enabled: false
+  data:
+    redis:
+      connect-timeout: 2s
+      host: localhost
+      port: 6379
+      timeout: 1s
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Public certificate endpoint as take from Keycloak admin interface
+          jwk-set-uri: http://localhost:7080/realms/master/protocol/openid-connect/certs
+
+# This is used inside routelocator bean
+resilience4j.circuitbreaker:
+  configs:
+    default: # Config for all circuit breakers. For specific one change this to specific name i.e accounts-circuit-breaker
+      slidingWindowSize: 10 # How many requests it has to monitor before changing from closed to open state
+      permittedNumberOfCallsInHalfOpenState: 2 # Process and monitor two requests and then decide going to fully closed or back to open state
+      failureRateThreshold: 50 # 50%, if 50 percent failed, move from closed to open
+      waitDurationInOpenState: 10000 # Open state timeout after which it moves to half-open state
+
+management:
+  endpoint:
+    gateway:
+      enabled: true # Activate gateway related endpoints of the actuator
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  info:
+    env:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http:
+          server:
+            requests: true
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
+
+info:
+  app:
+    description: Bank Gateway Server Application
+    name: Gateway Server Microservice
+    version: 1.0.0
+
+logging:
+  level:
+    com:
+      bank:
+        gatewayserver: DEBUG
+  pattern:
+    level: '%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]'
